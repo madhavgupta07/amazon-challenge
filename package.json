@@ -1,0 +1,38 @@
+{
+  "name": "lifepilot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LifePilot — a personal AI productivity agent (Alexa+ Hackathon 2026)",
+  "license": "MIT",
+  "workspaces": [
+    "shared",
+    "server",
+    "mcp-server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n mcp,server,client -c magenta,blue,green \"npm:dev:mcp\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:mcp": "npm run dev -w mcp-server",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client && npm run build -w server && npm run build -w mcp-server",
+    "start:mcp": "npm run start -w mcp-server",
+    "start:server": "npm run start -w server",
+    "seed": "npm run seed -w server",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w mcp-server && npm run typecheck -w client",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/supertest": "^6.0.3",
+    "concurrently": "^9.1.2",
+    "mongodb-memory-server": "^10.4.3",
+    "supertest": "^7.3.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
