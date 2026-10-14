@@ -59,7 +59,7 @@ still validates with the full, refined schema.
 user: delete the task "Temporary chore"
    │
    ▼ orchestrator sees tool=delete_task (destructive flag)
-   ├─ stores PendingAction in an in-memory TTL store (10 min)
+   ├─ stores PendingAction in the confirmation store (10-min TTL)
    ├─ replies: "…that can't be undone. Confirm and I'll go ahead."
    │
    ▼ client renders a Confirm / Cancel card from pendingAction
@@ -69,23 +69,22 @@ user: delete the task "Temporary chore"
    └─ trace recorded as confirmed/cancelled in the conversation
 ```
 
-The store is intentionally in-memory and single-instance; upgrading to a shared store
-(e.g. Redis) is called out in the code for multi-instance deployments.
+The confirmation store has two backends behind one interface (`PendingActionStore`):
+an in-memory map (default, single-instance) and **Amazon DynamoDB** (`PENDING_ACTION_STORE=auto`
+with `AWS_REGION` set) which persists confirmations across restarts and instances, uses a native
+TTL, and consumes confirmations with a single atomic `DeleteCommand`. See
+`server/src/agent/pendingActionStore.ts`.
 
-## AI providers
+## AI engine
 
-`selectProvider()` (`server/src/ai/index.ts`) resolves `AI_PROVIDER`:
+`selectProvider()` (`server/src/ai/index.ts`) returns the app's single local provider behind the
+pluggable `AIProvider` interface:
 
-- `mock` → `MockProvider` (deterministic heuristics, same tool protocol).
-- `npmai` → `NpmaiProvider` (must have `NPMAI_BASE_URL`).
-- `auto` → NPMAI when `NPMAI_BASE_URL` is configured, otherwise the local provider.
-
-`NpmaiProvider` wraps the verified NPMAI HTTP contract:
-`POST { prompt, model, temperature } → { response }`. It renders `system/user/assistant`
-messages into a prompt, retries, and fails over to `NPMAI_FALLBACK_BASE_URL`. Because the API
-is text-completion only, tool use is achieved with the JSON-ReAct protocol, not native
-function calling. `ALLOW_MOCK_FALLBACK` lets the orchestrator degrade to the local provider
-instead of surfacing provider outages.
+- **Local demo** (`MockProvider`) — deterministic heuristics that emit the exact same JSON tool
+  protocol a model would, so the full retrieve → decide → act loop runs offline against real data.
+- **Pluggable** — add an `AIProvider` implementation and return it from `selectProvider()`; the
+  agent loop and MCP tool layer are unchanged. Because text-completion engines have no native
+  tool-calling, tool use goes through the JSON-ReAct protocol, not native function calling.
 
 ## DRY data layer
 
@@ -102,11 +101,11 @@ the same data identical.
   then drives the real REST → agent → MCP → Mongo path with the deterministic local provider:
   plan proposal, natural-language task creation, destructive-confirmation round trip, summaries,
   and plan generation/saving.
-- `tests/setup.ts` pins `AI_PROVIDER=mock`, `JWT_SECRET`, `MCP_INTERNAL_TOKEN`.
+- `tests/setup.ts` pins `JWT_SECRET` and `MCP_INTERNAL_TOKEN`.
 
 ## Key decisions
 
-- **No native MCP from NPMAI** → JSON-ReAct orchestration with strict zod validation per step.
+- **No native tool-calling in the engine** → JSON-ReAct orchestration with strict zod validation per step.
 - **Headers carry identity** so tools never accept a `userId` argument.
 - **Stateless MCP transport per request** — required by the SDK, keeps it deployable.
 - **In-memory pending-actions store** — fast and correct for single instance; documented swap path.

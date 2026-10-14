@@ -9,7 +9,7 @@ export interface CompletionOptions {
 }
 
 export interface AIProvider {
-  /** Stable id, e.g. "npmai" | "mock". */
+  /** Stable provider id. */
   readonly id: string;
   /** Human-readable label surfaced in the UI. */
   readonly label: string;

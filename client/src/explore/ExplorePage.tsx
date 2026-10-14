@@ -970,7 +970,7 @@ function JourneyPlayer({
 const STACK_LANES = [
   { title: "Client", ids: ["react", "vite", "rrd", "tw", "lucide"] },
   { title: "Backend API", ids: ["express", "helmet", "jwt", "zod"] },
-  { title: "Agent & MCP", ids: ["mcp-sdk", "npmai"] },
+  { title: "Agent & MCP", ids: ["mcp-sdk", "local-engine"] },
   { title: "Data & Testing", ids: ["mongo", "vitest", "tsx"] },
 ];
 

@@ -50,10 +50,10 @@ function coerceArguments(value: unknown): Record<string, unknown> {
 
 /**
  * Parse the model's response into either a tool call or a final answer.
- * NPMAI has no native tool-calling, so we standardise on a JSON protocol and
- * extract the first valid object even if the model wraps it in prose or fences.
+ * The engine has no native tool-calling, so we standardise on a JSON protocol
+ * and extract the first valid object even if it is wrapped in prose or fences.
  * OpenAI-style shapes ({"name","parameters"} / {"function":{...}}) are also
- * accepted because weaker models tend to emit them.
+ * accepted for compatibility with other text-completion engines.
  */
 export function parseModelOutput(raw: string): ParsedModelOutput {
   const text = stripCodeFences(raw ?? "");

@@ -7,10 +7,13 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "seed": "tsx src/scripts/seed.ts",
+    "dynamo:setup": "tsx src/scripts/setupDynamo.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1150.0",
+    "@aws-sdk/lib-dynamodb": "^3.1150.0",
     "@lifepilot/shared": "*",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "bcryptjs": "^2.4.3",

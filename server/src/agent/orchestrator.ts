@@ -13,12 +13,10 @@ import {
   buildObservation,
   buildSystemPrompt,
   formatConversationHistory,
-  mockProvider,
   parseModelOutput,
   selectProvider,
   type ChatMessage,
 } from "../ai/index.js";
-import { ProviderError } from "../ai/types.js";
 import { AppError } from "../utils/AppError.js";
 import { logger } from "../utils/logger.js";
 import { callToolOnce, createMcpSession } from "../services/mcpClient.js";
@@ -85,7 +83,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
     },
   ];
 
-  let provider = selectProvider();
+  const provider = selectProvider();
   logger.info("agent.run", { userId: input.userId, provider: provider.id });
 
   const toolsUsed: ToolCallTrace[] = [];
@@ -102,14 +100,8 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
       try {
         text = await provider.complete(messages, { temperature: env.ai.temperature });
       } catch (error) {
-        if (provider.id !== "mock" && env.ai.allowMockFallback && error instanceof ProviderError) {
-          logger.warn("agent.provider_fallback", { from: provider.id, reason: error.code });
-          provider = mockProvider;
-          text = await provider.complete(messages, { temperature: env.ai.temperature });
-        } else {
-          logger.error("agent.provider_error", { message: (error as Error).message });
-          throw AppError.internal(PROVIDER_FALLBACK_MESSAGE);
-        }
+        logger.error("agent.provider_error", { message: (error as Error).message });
+        throw AppError.internal(PROVIDER_FALLBACK_MESSAGE);
       }
 
       const parsed = parseModelOutput(text);
@@ -150,7 +142,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
 
         if (definition.destructive) {
           const summary = `${definition.title} permanently removes data and cannot be undone.`;
-          pendingAction = createPendingAction({
+          pendingAction = await createPendingAction({
             userId: input.userId,
             name: parsed.tool,
             title: definition.title,
@@ -256,7 +248,7 @@ export async function confirmPendingAction(
   actionId: string,
   conversationId?: string | null,
 ): Promise<{ reply: string; toolCall: ToolCallTrace; conversationId: string | null }> {
-  const action = takePendingAction(userId, actionId);
+  const action = await takePendingAction(userId, actionId);
   if (!action) {
     throw AppError.notFound("This confirmation has expired or was already used.");
   }
@@ -289,7 +281,7 @@ export async function cancelPendingAction(
   actionId: string,
   conversationId?: string | null,
 ): Promise<{ reply: string; toolCall: ToolCallTrace; conversationId: string | null }> {
-  const action = takePendingAction(userId, actionId);
+  const action = await takePendingAction(userId, actionId);
   if (!action) {
     throw AppError.notFound("This confirmation has expired or was already used.");
   }

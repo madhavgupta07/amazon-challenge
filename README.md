@@ -31,12 +31,14 @@ Four npm workspaces behind one entry point:
 - **shared** — zod tool schemas, Mongoose models, time/date utilities, and the data
   services used by **both** the REST API and the MCP tools (no duplicated logic).
 
-**AI providers** are pluggable (`server/src/ai`):
+**AI engine** (`server/src/ai`) runs a single **local, deterministic provider** behind a pluggable
+`AIProvider` interface:
 
-| Provider | When | Notes |
-| --- | --- | --- |
-| `NPMAI` | `AI_PROVIDER=npmai`, or `auto` with `NPMAI_BASE_URL` set | Text-completion API (`POST {prompt, model, temperature}` → `{response}`); orchestrated with the JSON-ReAct protocol because it has no native tool calling. Retries, then fails over to a fallback endpoint. Free tier needs no key. |
-| `Local demo` | `AI_PROVIDER=mock`, or `auto` with no NPMAI config | Deterministic heuristic agent that makes the **same real tool calls** — great for offline demos and tests. Labeled `"Local demo"` in the UI so the user always knows. |
+- **Local demo** — a deterministic heuristic agent that makes the **same real MCP tool calls** and
+  writes the same records a hosted model would. Fully offline, so demos and tests are instant and
+  reproducible. Labeled `"Local demo"` in the UI so the user always knows.
+- **Pluggable** — another engine can be dropped in by adding an `AIProvider` and returning it from
+  `selectProvider()` (`server/src/ai/index.ts`); the agent loop and MCP layer are unchanged.
 
 Every assistant reply is labelled with the provider that produced it, and every tool call it
 made is shown in the chat UI (task created, task completed, plan built, …).
@@ -55,7 +57,9 @@ recap. It is public (no login) and lives in `client/src/explore/`.
 - The MCP endpoint requires a shared `MCP_INTERNAL_TOKEN` and binds to `127.0.0.1`.
 - **Destructive tools** (`delete_task`, `delete_note`) never run directly from the agent: the
   orchestrator intercepts them, creates a short-lived `PendingAction`, and asks the user to
-  confirm. Deletes only happen on explicit confirmation.
+  confirm. Deletes only happen on explicit confirmation. Pending actions live in memory by
+  default, or in **Amazon DynamoDB** (with native TTL) when AWS is configured — so a confirmation
+  survives restarts and works across instances.
 
 ## Quick start
 
@@ -80,9 +84,48 @@ Open http://localhost:5173, sign in with the demo account (or register), and try
 | --- | --- |
 | `npm run dev` | Run mcp-server, API server and client concurrently with watch mode |
 | `npm run seed` | Create the demo user, ~12 tasks, 4 notes, and today's saved plan |
-| `npm test` | Integration tests (MCP over HTTP, and full REST → agent → MCP → Mongo) plus parser and mock-provider unit tests — 31 tests across 4 files |
+| `npm run dynamo:setup -w server` | Create the DynamoDB confirmation table + TTL (AWS integration) |
+| `npm test` | Integration tests (MCP over HTTP, and full REST → agent → MCP → Mongo) plus parser, mock-provider, and confirmation-store tests — 39 tests across 5 files |
 | `npm run typecheck` | Type-check all four workspaces |
 | `npm run build` | Production build of client + server type-checks |
+
+## AWS integration (Amazon DynamoDB)
+
+Destructive-action confirmations can be persisted in **Amazon DynamoDB** instead of process
+memory, so approvals survive restarts and are shared across instances. Table spec:
+
+| | |
+| --- | --- |
+| Table name | `lifepilot_pending_actions` (override with `DYNAMODB_PENDING_ACTIONS_TABLE`) |
+| Partition key | `id` (String) |
+| Capacity | **Provisioned 25 WCU / 25 RCU** (DynamoDB's permanent always-free allowance) |
+| TTL | attribute `expiresAt` |
+
+Create it either way:
+
+```bash
+# A) script — creates the table and enables TTL
+export AWS_REGION=us-east-1           # plus credentials (env, ~/.aws, or a role)
+npm run dynamo:setup -w server
+
+# B) AWS Console — DynamoDB → Create table using the spec above, then
+#    Additional settings → Time to Live → enable on `expiresAt`.
+```
+
+Credentials use the standard AWS chain; set them in `.env`:
+
+```
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+# PENDING_ACTION_STORE=auto (default) selects DynamoDB once AWS_REGION is set
+```
+
+`PENDING_ACTION_STORE` may be `memory`, `dynamodb`, or `auto` (DynamoDB when `AWS_REGION` or
+`DYNAMODB_ENDPOINT` is set, else memory). For offline development run **DynamoDB Local** and set
+`DYNAMODB_ENDPOINT=http://localhost:8000`. To stay strictly free, keep the table **provisioned**
+at ≤25/25 — DynamoDB's always-free allowance (25 GB + 25 WCU/25 RCU) is permanent, applies to every
+account, and covers *provisioned* capacity only; on-demand tables are billed per request.
 
 ## API surface (selected)
 

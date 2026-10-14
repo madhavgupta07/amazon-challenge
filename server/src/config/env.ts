@@ -13,8 +13,6 @@ if (isProd && !process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET must be set in production");
 }
 
-const provider = (process.env.AI_PROVIDER ?? "auto").toLowerCase();
-
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProd,
@@ -32,33 +30,28 @@ export const env = {
   },
 
   ai: {
-    /** auto | npmai | mock */
-    provider: (["npmai", "mock", "auto"].includes(provider) ? provider : "auto") as
-      | "npmai"
-      | "mock"
-      | "auto",
-    /** Fall back to the local deterministic provider when NPMAI is unreachable. */
-    allowMockFallback: process.env.ALLOW_MOCK_FALLBACK !== "false",
     maxIterations: num(process.env.AI_MAX_TOOL_ITERATIONS, 6),
     requestTimeoutMs: num(process.env.AI_REQUEST_TIMEOUT_MS, 45_000),
     temperature: Number(process.env.AI_TEMPERATURE ?? 0.3),
   },
 
-  npmai: {
-    baseUrl: process.env.NPMAI_BASE_URL ?? "",
+  aws: {
     /**
-     * Fail-over endpoint. Only honoured when a primary URL is set, so an
-     * unconfigured install picks the local provider instead of waiting on an
-     * unreachable host.
+     * Confirmation-store backend: memory | dynamodb | auto.
+     * auto -> dynamodb when AWS_REGION or DYNAMODB_ENDPOINT is set, else memory.
      */
-    fallbackUrl: process.env.NPMAI_BASE_URL
-      ? (process.env.NPMAI_FALLBACK_BASE_URL ??
-        "https://npmaiecosystem-loadbalancerfallback.hf.space/load_balancer")
-      : "",
-    /** NPMAI's free tier requires no key; set this only for a self-hosted gateway. */
-    apiKey: process.env.NPMAI_API_KEY ?? "",
-    model: process.env.NPMAI_MODEL ?? "llama3.2",
-    retries: num(process.env.NPMAI_RETRIES, 1),
+    pendingActionStore: (
+      ["memory", "dynamodb", "auto"].includes(
+        (process.env.PENDING_ACTION_STORE ?? "auto").toLowerCase(),
+      )
+        ? (process.env.PENDING_ACTION_STORE ?? "auto").toLowerCase()
+        : "auto"
+    ) as "memory" | "dynamodb" | "auto",
+    region: process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "",
+    /** Override endpoint, e.g. http://localhost:8000 for DynamoDB Local. */
+    dynamoEndpoint: process.env.DYNAMODB_ENDPOINT ?? "",
+    pendingActionsTable:
+      process.env.DYNAMODB_PENDING_ACTIONS_TABLE ?? "lifepilot_pending_actions",
   },
 
   rateLimit: {
@@ -69,7 +62,3 @@ export const env = {
 
   demoSeed: process.env.DEMO_SEED === "true",
 };
-
-export function npmaiConfigured(): boolean {
-  return Boolean(env.npmai.baseUrl || env.npmai.fallbackUrl);
-}

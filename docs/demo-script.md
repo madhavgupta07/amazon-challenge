@@ -11,8 +11,8 @@ npm run seed                          # demo user + ~12 tasks + 4 notes + today'
 npm run dev                           # mcp-server :4001 · server :4000 · client :5173
 ```
 
-> Set `AI_PROVIDER=mock` (default `auto` with no NPMAI config behaves the same) so demos are
-> instant and deterministic. The UI labels the provider "Local demo".
+> The bundled engine is deterministic and fully offline, so demos are instant and reproducible.
+> The UI labels the provider "Local demo".
 
 Open http://localhost:5173 and sign in as **demo@lifepilot.app / demo1234**.
 
@@ -57,8 +57,8 @@ Open http://localhost:5173 and sign in as **demo@lifepilot.app / demo1234**.
   shared services → MongoDB.
 - Agent works through **13 MCP tools**; every tool call is validated and shown in the chat.
 - Users are isolated through headers, identities never flow through tool arguments.
-- Providers are pluggable — replace the local demo with **NPMAI** (`NPMAI_BASE_URL`) with no
-  client changes.
+- The engine is pluggable — swap the local demo for a hosted model behind the same `AIProvider`
+  interface with no client changes.
 
 ## Good closing lines
 

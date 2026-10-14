@@ -22,7 +22,7 @@ export const HERO = {
   stats: [
     { label: "MCP Tools", value: "13 Verified", hint: "Streamable HTTP" },
     { label: "Data Models", value: "5 Mongoose", hint: "MongoDB Isolated" },
-    { label: "AI Providers", value: "2 Pluggable", hint: "NPMAI + Local" },
+    { label: "AI Engine", value: "Local & Offline", hint: "Deterministic" },
     { label: "Hallucinations", value: "Zero Allowed", hint: "Schema Validated" },
   ],
 };
@@ -84,7 +84,7 @@ export const HIGHLIGHTS = [
   },
   {
     title: "Transparent Provenance",
-    body: "Every response explicitly displays the provider (NPMAI or Local demo) and audit chips for all tools called.",
+    body: "Every response displays its provider provenance and audit chips for all tools called.",
     icon: "FileCheck",
   },
 ];
@@ -124,7 +124,7 @@ export const PROBLEM = {
     },
     {
       title: "Audit Traces & Honest Attribution",
-      body: "Every response itemizes the exact tools executed and declares whether NPMAI or Local demo produced it.",
+      body: "Every response itemizes the exact tools executed and declares its provider in the trace.",
     },
   ],
 };
@@ -159,7 +159,7 @@ export const FEATURES = [
     id: "react-loop",
     name: "JSON-ReAct Tool Execution Loop",
     simple: "The AI must emit strict JSON: either a tool call with arguments, or a final answer. No silent hallucinations.",
-    why: "NPMAI is a text-completion API with no native tool-calling. The JSON-ReAct protocol gives it full tool capability.",
+    why: "Text-completion engines expose no native tool-calling; the JSON-ReAct protocol gives them full tool capability.",
     how: "parseModelOutput parses { tool, arguments } or { final_answer }. Arguments are parsed against the tool's Zod schema before calling MCP.",
     behind:
       "Observations are appended as OBSERVATION <tool>: {…} turns. If JSON or schema validation fails, the error is fed back as an observation so the model can self-correct, capped by AI_MAX_TOOL_ITERATIONS (default 6).",
@@ -312,18 +312,17 @@ export const FEATURES = [
   },
   {
     id: "providers",
-    name: "Pluggable AI Engine (NPMAI + Mock)",
-    simple: "Switch between live NPMAI text completion with automatic fallback, or an offline deterministic Local demo provider.",
-    why: "Demos, offline testing, and continuous integration must work reliably even without internet or third-party API keys.",
-    how: "selectProvider() evaluates AI_PROVIDER (auto | npmai | mock). NPMAI posts { prompt, model, temperature } and retries with fallback.",
+    name: "Pluggable Local AI Engine",
+    simple: "Runs a fully offline, deterministic engine that executes the exact same MCP tool calls and writes the same records.",
+    why: "Demos, offline testing, and continuous integration must work reliably without internet or third-party API keys.",
+    how: "selectProvider() returns the local engine behind the AIProvider interface, so a hosted model can be dropped in later without touching the agent loop.",
     behind:
-      "MockProvider uses deterministic heuristics to execute the exact same MCP tool calls and write the same MongoDB records.",
+      "MockProvider uses deterministic heuristics to execute the same MCP tool calls and write the same MongoDB records a model would.",
     files: [
       "server/src/ai/index.ts",
-      "server/src/ai/npmaiProvider.ts",
       "server/src/ai/mockProvider.ts",
     ],
-    example: "Offline mode still creates real MongoDB tasks and calculates real time-blocked plans via Local demo.",
+    example: "Offline mode still creates real MongoDB tasks and calculates real time-blocked plans.",
   },
 ];
 
@@ -602,7 +601,7 @@ export const GLOSSARY = [
     term: "JSON-ReAct Agent Pattern",
     category: "Agent & MCP",
     def: "Reasoning and Acting loop where the AI proposes a tool call, receives an observation, and iterates until emitting a final answer.",
-    why: "Allows text-completion models (like NPMAI) to invoke tools reliably without native function-calling APIs.",
+    why: "Allows text-completion engines to invoke tools reliably without native function-calling APIs.",
     example: "server/src/agent/orchestrator.ts loop bounded by AI_MAX_TOOL_ITERATIONS.",
     analogy: "A detective looking at a clue, checking a file, evaluating what they learned, and checking the next file until solved.",
   },
@@ -728,12 +727,12 @@ export const ARCH_NODES = [
   },
   {
     id: "ai",
-    label: "AI Engine (NPMAI / Mock)",
+    label: "AI Engine (Local)",
     kind: "actual" as const,
     x: 650,
     y: 260,
-    files: ["server/src/ai/index.ts", "server/src/ai/npmaiProvider.ts", "server/src/ai/mockProvider.ts"],
-    body: "Pluggable provider: NPMAI text completion with automatic fallback URL, or deterministic Local demo heuristics.",
+    files: ["server/src/ai/index.ts", "server/src/ai/mockProvider.ts"],
+    body: "Local deterministic engine behind a pluggable AIProvider interface. Executes the JSON-ReAct loop offline with no network dependency.",
   },
   {
     id: "mcp",
@@ -842,7 +841,7 @@ export const JOURNEYS = [
       },
       {
         title: "UI displays response and tool audit chips",
-        detail: "AssistantPage renders the AI message with NPMAI / Local demo label and tool chip. Planner page reflects the plan.",
+        detail: "AssistantPage renders the AI message with its provider label and tool chip. Planner page reflects the plan.",
         layer: "Client",
         endpoint: "client/src/pages/AssistantPage.tsx",
       },
@@ -1108,13 +1107,13 @@ export const STACK = [
     talks: "Express server acts as client; mcp-server acts as host over Streamable HTTP.",
   },
   {
-    id: "npmai",
-    name: "NPMAI Provider",
+    id: "local-engine",
+    name: "Local Deterministic Engine",
     category: "AI & MCP",
-    role: "Remote Text Completion LLM",
-    why: "Hackathon-friendly completion endpoint with automatic fallback URL and retry logic.",
-    files: ["server/src/ai/npmaiProvider.ts"],
-    talks: "Receives system/user messages from orchestrator; returns JSON tool calls or answers.",
+    role: "Offline Agent Reasoner",
+    why: "Runs the JSON-ReAct loop with zero network dependency, so demos and CI are fast and reproducible.",
+    files: ["server/src/ai/mockProvider.ts", "server/src/ai/parse.ts"],
+    talks: "Receives system/user messages from the orchestrator; returns JSON tool calls or final answers.",
   },
   {
     id: "mongo",
@@ -1132,7 +1131,7 @@ export const STACK = [
     role: "Integration & Unit Testing Suite",
     why: "Blazing-fast Vite-native test runner with mongodb-memory-server for isolated, deterministic integration tests.",
     files: ["tests/*.ts", "vitest.config.ts"],
-    talks: "Executes 31 comprehensive integration tests covering auth, agent loop, and MCP tools.",
+    talks: "Executes 39 comprehensive integration tests covering auth, agent loop, and MCP tools.",
   },
   {
     id: "tsx",
