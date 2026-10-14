@@ -150,4 +150,3 @@ See `server/src/routes` for the full surface.
 - [`docs/architecture.md`](docs/architecture.md) — design decisions and data flow
 - [`docs/setup.md`](docs/setup.md) — full install, configuration reference and troubleshooting
 - [`docs/demo-script.md`](docs/demo-script.md) — narrated demo walk-through
-- [`demo/lifepilot-demo.mp4`](demo/lifepilot-demo.mp4) — 48s captioned demo video
